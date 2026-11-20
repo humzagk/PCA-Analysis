@@ -24,19 +24,48 @@ def subtract_matrix(A, B):
     return [[a - b for a, b in zip(rowA, rowB)] for rowA, rowB in zip(A, B)]
 
 
-def power_iteration(A, num_iters=1000, tol=1e-6):
+def normalize(v):
+    """Scale a vector to unit length (returns None for a zero vector)."""
+    norm = math.sqrt(dot(v, v))
+    if norm < 1e-12:
+        return None
+    return [x / norm for x in v]
+
+
+def orthogonalize(v, basis):
+    """Remove from v its components along each (unit) vector in basis (Gram-Schmidt)."""
+    v = v[:]
+    for u in basis:
+        proj = dot(v, u)
+        v = [vi - proj * ui for vi, ui in zip(v, u)]
+    return v
+
+
+def start_vector(n, found):
     """
-    Power iteration to compute the dominant eigenvalue and eigenvector of a square matrix A.
-    Returns (eigenvalue, eigenvector).
+    Pick a unit start vector with as much weight as possible outside the
+    eigenvectors already found. A fixed start such as [1, 1, 1] can be
+    orthogonal to the eigenvector we are looking for, in which case power
+    iteration never finds it.
+    """
+    candidates = [[1.0] * n] + [[1.0 if i == j else 0.0 for i in range(n)] for j in range(n)]
+    best = max((orthogonalize(c, found) for c in candidates), key=lambda v: dot(v, v))
+    return normalize(best)
+
+
+def power_iteration(A, num_iters=1000, tol=1e-6, found=()):
+    """
+    Power iteration to compute the dominant eigenvalue and eigenvector of a
+    symmetric matrix A, restricted to the space orthogonal to the eigenvectors
+    in `found`. Returns (eigenvalue, eigenvector).
     """
     n = len(A)
-    b_k = [1.0] * n
+    b_k = start_vector(n, found)
     for _ in range(num_iters):
-        Ab = mat_vec_mul(A, b_k)
-        norm = math.sqrt(dot(Ab, Ab))
-        if norm == 0:
+        b_k1 = normalize(orthogonalize(mat_vec_mul(A, b_k), found))
+        if b_k1 is None:
+            # A is zero on the remaining space: b_k is an eigenvector with eigenvalue 0
             break
-        b_k1 = [x / norm for x in Ab]
         if max(abs(b_k1[i] - b_k[i]) for i in range(n)) < tol:
             b_k = b_k1
             break
@@ -54,7 +83,7 @@ def eigen_decompose(C):
     n = len(A)
     pairs = []
     for _ in range(n):
-        val, vec = power_iteration(A)
+        val, vec = power_iteration(A, found=[p[1] for p in pairs])
         pairs.append((val, vec))
         # Deflation: subtract val * (vec * vec^T)
         deflation = [[val * v_i * v_j for v_j in vec] for v_i in vec]
@@ -80,10 +109,10 @@ def load_image(path):
 def save_image(channels, size, path):
     """Save R, G, B channel lists as an image."""
     r, g, b = channels
-    # clamp values and cast to int
-    pixels = [(int(min(max(r[i],0),255)),
-               int(min(max(g[i],0),255)),
-               int(min(max(b[i],0),255)))
+    # clamp values and round to the nearest integer
+    pixels = [(round(min(max(r[i],0),255)),
+               round(min(max(g[i],0),255)),
+               round(min(max(b[i],0),255)))
               for i in range(len(r))]
     img = Image.new('RGB', size)
     img.putdata(pixels)
@@ -132,6 +161,8 @@ def reconstruct(centered, means, eigvecs, k):
 
 def process_image(input_path, output_path, k=3):
     """End-to-end PCA transform on an image, keeping k components."""
+    if not 1 <= k <= 3:
+        raise ValueError(f"k must be 1, 2 or 3 for an RGB image, got {k}")
     channels, size = load_image(input_path)
     means = compute_means(channels)
     centered = center_channels(channels, means)
@@ -145,7 +176,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PCA on 24-bit images')
     parser.add_argument('input', help='Input image path')
     parser.add_argument('output', help='Output image path')
-    parser.add_argument('-k', type=int, default=3,
+    parser.add_argument('-k', type=int, default=3, choices=[1, 2, 3],
                         help='Number of principal components to keep (1-3)')
     args = parser.parse_args()
     process_image(args.input, args.output, args.k)
