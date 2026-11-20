@@ -45,7 +45,7 @@ python pca_py.py input.png output.png -k 2
 python gui_py.py
 ```
 
-Open an image, choose the number of components with the slider, click **Run PCA** to see the result next to the original, and use **Save As** to keep it. On Windows a pre-built `gui_py.exe` is also included.
+Open an image, choose the number of components with the slider, click **Run PCA** to see the result next to the original, and use **Save As** to keep it. On Windows you can instead download the pre-built `gui_py.exe` from the [latest release](https://github.com/humzagk/PCA-Analysis/releases/latest) and run it without installing Python.
 
 ### As a library
 
