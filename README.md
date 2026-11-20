@@ -17,7 +17,7 @@ With `k = 3` the image is reconstructed losslessly. With `k = 1` or `k = 2` the 
 
 ## Installation
 
-Requires Python 3.9+.
+Requires Python 3.11 or newer (CI runs on 3.11 and 3.13).
 
 ```bash
 git clone https://github.com/humzagk/PCA-Analysis.git
